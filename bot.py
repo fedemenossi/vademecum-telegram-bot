@@ -3,7 +3,9 @@ import requests
 import json
 from datetime import datetime  # <-- Esta línea soluciona tu error
 from telegram import Update,InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler  
+from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler, CallbackQueryHandler 
+import requests
+import xml.etree.ElementTree as ET
 
 
 
@@ -14,6 +16,55 @@ OPENWEATHER_API_KEY = "1fcd18ec464cb20595a106f0bc1eb3c4"
 
 # 📢 Logs
 logging.basicConfig(level=logging.INFO)
+
+# Función para consultar MedlinePlus
+def buscar_medlineplus(termino):
+    base_url = "https://wsearch.nlm.nih.gov/ws/query"
+    params = {
+        "db": "healthTopics",
+        "term": termino,
+        "lang": "es"
+    }
+
+    response = requests.get(base_url, params=params)
+    
+    if response.status_code != 200:
+        return f"Error al hacer la solicitud: {response.status_code}"
+
+    root = ET.fromstring(response.text)
+
+    documentos = root.findall(".//document")
+    
+    if not documentos:
+        return "No se encontró información sobre ese término."
+
+    resultados = []
+
+    for doc in documentos:
+        titulo = None
+        resumen = None
+        url = doc.get("url") or doc.attrib.get("url")
+        
+        for content in doc.findall("content"):
+            if content.attrib.get("name") == "title" and titulo is None:
+                titulo = "".join(content.itertext()).strip()
+            elif content.attrib.get("name") == "FullSummary" and resumen is None:
+                resumen = "".join(content.itertext()).strip()
+
+        if titulo and resumen and url:
+            resultados.append(f"Título: {titulo}\nResumen: {resumen}\nURL: {url}\n")
+
+    if resultados:
+        return "\n---\n".join(resultados[:2])  # Devuelve los primeros 2 resultados
+    else:
+        return "Se encontraron documentos, pero no contenían resumen o título válido."
+
+async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    termino = update.message.text
+    resultado = buscar_medlineplus(termino)
+    await update.message.reply_markdown(resultado)
+    
+
 
 # 🧠 Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,6 +139,7 @@ async def boton_presionado(update: Update, context: ContextTypes.DEFAULT_TYPE):
         respuesta = obtener_clima_maniana(query.data)
         await query.message.reply_text(respuesta)
         #await query.edit_message_text("Tomas que te importa el clima en Londres si no estas ahí!!!")
+        
 
 
 
@@ -95,8 +147,9 @@ async def boton_presionado(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = Application.builder().token(TELEGRAM_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-app.add_handler(CallbackQueryHandler(boton_presionado))
+#app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, responder))
+#app.add_handler(CallbackQueryHandler(boton_presionado))
 
-print("🌦 Bot del clima iniciado...")
+print("🌦 Bot de Vademecum iniciado...")
 app.run_polling()
