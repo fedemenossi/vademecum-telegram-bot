@@ -1,6 +1,7 @@
 import logging
 import requests
 import json
+import mercadopago
 #from deep_translator import GoogleTranslator
 from datetime import datetime  # <-- Esta línea soluciona tu error
 from telegram import Update,InlineKeyboardButton, InlineKeyboardMarkup
@@ -9,13 +10,18 @@ import requests
 import xml.etree.ElementTree as ET
 import re
 import html
+import sqlite3
+from datetime import datetime, timedelta
 
+sdk = mercadopago.SDK("TU_ACCESS_TOKEN")
 
-#translator = Translator()
-
+DB_PATH = "usuarios.db"
+CANTIDAD_GRATIS = 5
 
 TELEGRAM_TOKEN = "7976779147:AAGi_06PH9rlRho2rm5MMV7BT9n84xN6Ww4"
 OPENWEATHER_API_KEY = "1fcd18ec464cb20595a106f0bc1eb3c4"
+MAX_LEN = 4000  # un poco menos que el límite para dejar margen
+
 
 # 🧠 Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -25,7 +31,106 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
      await update.message.reply_text("🛠 Comandos:\n/start - Iniciar\n/help - Ayuda")
 
-MAX_LEN = 4000  # un poco menos que el límite para dejar margen
+
+# 🧠 creacion de usuarios
+def get_or_create_user(telegram_id, username, nombre, apellido):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM usuarios WHERE telegram_id = ?", (telegram_id,))
+    user = cursor.fetchone()
+
+    if user is None:
+        cursor.execute("INSERT INTO usuarios (telegram_id, username, nombre, apellido, consultas, suscripcion_valida_hasta) VALUES (?, ?, ?, ?, 0, NULL)",
+                       (telegram_id, username, nombre, apellido))
+        conn.commit()
+    conn.close()
+    
+    
+def puede_usar_bot(telegram_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = ?", (telegram_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row is None:
+        return False, "Usuario no registrado"
+
+    consultas, suscripcion_valida_hasta = row
+    if suscripcion_valida_hasta:
+        sus_valida = datetime.strptime(suscripcion_valida_hasta, "%Y-%m-%d") >= datetime.now()
+        if sus_valida:
+            return True, "Suscripción activa"
+    if consultas < CANTIDAD_GRATIS:
+        return True, "Consulta gratuita"
+    return False, "Debe pagar"
+
+
+def registrar_uso(telegram_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE usuarios SET consultas = consultas + 1 WHERE telegram_id = ?", (telegram_id,))
+    conn.commit()
+    conn.close()
+
+# Activar suscripción manualmente (ejemplo)
+def activar_suscripcion(telegram_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    nueva_fecha = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+    cursor.execute("UPDATE usuarios SET suscripcion_valida_hasta = ?, consultas = 0 WHERE telegram_id = ?",
+                   (nueva_fecha, telegram_id))
+    conn.commit()
+    conn.close()
+    
+    
+def crear_preferencia_pago(telegram_id):
+    
+    preference_data = {
+        "items": [
+            {
+                "title": "Suscripción Bot Telegram - 30 días",
+                "quantity": 1,
+                "unit_price": 1000.0
+            }
+        ],
+        "payer": {
+            "telegram_id": telegram_id
+        },
+        "notification_url": "https://tu-servidor.com/webhook",  # Webhook donde te avisa Mercado Pago
+        "auto_return": "approved",
+        "back_urls": {
+            "success": "https://tubot.com/gracias",
+            "failure": "https://tubot.com/error",
+            "pending": "https://tubot.com/esperando"
+        }
+    }
+
+    preference_response = sdk.preference().create(preference_data)
+    return preference_response["response"]["init_point"]
+
+# Manejador de mensajes
+async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    telegram_id = user.id
+    username = user.username or ""
+    nombre = user.first_name or ""
+    apellido = user.last_name or ""
+
+    get_or_create_user(telegram_id, username, nombre, apellido)
+
+    permitido, motivo = puede_usar_bot(telegram_id)
+    if permitido:
+        registrar_uso(telegram_id)
+        await update.message.reply_text(f"✅ Consulta recibida. Motivo: {motivo}")
+        # Acá va la lógica del bot real.
+    else:
+        #url=crear_preferencia_pago(telegram_id)
+        url="https://www.google.com"
+        await update.message.reply_text(f"🚫 {motivo}. Por favor, pagá tu suscripción para continuar.\n\n[💳 Pagar ahora]({url})", parse_mode='Markdown')
+        #await update.message.reply_text(f"🚫 {motivo}. Por favor, pagá tu suscripción para continuar.\n\n[💳 Pagar ahora](https://tu-link-de-pago.com)", parse_mode='Markdown')
+
+
 
 def traducir_a_espanol(texto):
     try:
@@ -115,11 +220,10 @@ def buscar_medlineplus(termino):
         return "Se encontraron documentos, pero no contenían resumen o título válido."
 
 
-#print(buscar_medlineplus("diabetes"))
-#async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#    termino = update.message.text
-#    resultado = buscar_medlineplus(termino)
-#    await update.message.reply_markdown(resultado)
+async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    activar_suscripcion(update.effective_user.id)
+    await update.message.reply_text("✅ ¡Gracias por tu pago! Tu suscripción ha sido activada por 30 días.")
+
     
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     termino = update.message.text
@@ -133,8 +237,11 @@ app = Application.builder().token(TELEGRAM_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
 #app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, responder))
+#app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, responder))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
 #app.add_handler(CallbackQueryHandler(boton_presionado))
+app.add_handler(CommandHandler("pagar", pagar))  # Solo para pruebas
+
 
 print("🌦 Bot de Vademecum iniciado...")
 app.run_polling()
