@@ -196,7 +196,7 @@ def buscar_medlineplus(termino):
     documentos = root.findall(".//document")
     
     if not documentos:
-        return "No se encontró información sobre ese término."
+        return "No se encontró información sobre ese término...."
 
     resultados = []
 
