@@ -3,8 +3,8 @@ import logging
 import requests
 import json
 import mercadopago
-import mysql.connector
-from mysql.connector import Error
+import pymysql
+from pymysql.err import MySQLError
 #from deep_translator import GoogleTranslator
 from datetime import datetime  # <-- Esta línea soluciona tu error
 from telegram import Update,InlineKeyboardButton, InlineKeyboardMarkup
@@ -13,10 +13,9 @@ import requests
 import xml.etree.ElementTree as ET
 import re
 import html
-import sqlite3
 from datetime import datetime, timedelta
 
-sdk = mercadopago.SDK("TU_ACCESS_TOKEN")
+#sdk = mercadopago.SDK("TU_ACCESS_TOKEN")
 
 CANTIDAD_GRATIS = 5
 
@@ -62,15 +61,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 🧠 creacion de usuarios
 def get_or_create_user(telegram_id, username, nombre, apellido):
+    conn = get_db_connection()
     if conn:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM usuarios WHERE telegram_id = ?", (telegram_id,))
+        cursor.execute("SELECT * FROM usuarios WHERE telegram_id = %s", (telegram_id,))
         user = cursor.fetchone()
 
         if user is None:
-            cursor.execute("INSERT INTO usuarios (telegram_id, username, nombre, apellido, consultas, suscripcion_valida_hasta) VALUES (?, ?, ?, ?, 0, NULL)",
-                       (telegram_id, username, nombre, apellido))
+            #cursor.execute("INSERT INTO usuarios (telegram_id, username, nombre, apellido, consultas, suscripcion_valida_hasta) VALUES (?, ?, ?, ?, 0, NULL)",
+            #           (telegram_id, username, nombre, apellido))
+            
+            cursor.execute("INSERT INTO usuarios (telegram_id, username, nombre, apellido, consultas) VALUES (%s, %s, %s, %s, 0)",
+            (telegram_id, username, nombre, apellido))
             conn.commit()
         conn.close()
     
