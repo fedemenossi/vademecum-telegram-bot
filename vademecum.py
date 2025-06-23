@@ -29,23 +29,22 @@ MAX_LEN = 4000  # un poco menos que el límite para dejar margen
 HOST_DB="centerbeam.proxy.rlwy.net"
 PORT_DB=12935
 USER_DB="root"
-#PASSWORD_DB="QbnIpcJeXYYoQYvhnPUjAALwmhmswmmg"
-PASSWORD_DB = os.environ.get("MYSQL_PASSWORD")
+PASSWORD_DB="QbnIpcJeXYYoQYvhnPUjAALwmhmswmmg"
+#PASSWORD_DB = os.environ.get("MYSQL_PASSWORD")
 DATABASE_DB="railway"
 
 
 def get_db_connection():
     try:
-        db = mysql.connector.connect(
+        db = pymysql.connect(
         host=HOST_DB,                                    
         port=PORT_DB,
         user=USER_DB,
         password=PASSWORD_DB,
         database=DATABASE_DB)
-        if db.is_connected():
-            print("Conexión exitosa a la base de datos MySQL")
-            return db
-    except Error as e:
+        print("Conexión exitosa a la base de datos MySQL")
+        return db
+    except MySQLError  as e:
         print(f"Error al conectar a la base de datos: {e}")
         return None
 
@@ -81,7 +80,7 @@ def get_or_create_user(telegram_id, username, nombre, apellido):
 def puede_usar_bot(telegram_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = ?", (telegram_id,))
+    cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = %s", (telegram_id,))
     row = cursor.fetchone()
     conn.close()
 
@@ -101,7 +100,7 @@ def puede_usar_bot(telegram_id):
 def registrar_uso(telegram_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE usuarios SET consultas = consultas + 1 WHERE telegram_id = ?", (telegram_id,))
+    cursor.execute("UPDATE usuarios SET consultas = consultas + 1 WHERE telegram_id = %s", (telegram_id,))
     conn.commit()
     conn.close()
 
@@ -110,7 +109,7 @@ def activar_suscripcion(telegram_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     nueva_fecha = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
-    cursor.execute("UPDATE usuarios SET suscripcion_valida_hasta = ?, consultas = 0 WHERE telegram_id = ?",
+    cursor.execute("UPDATE usuarios SET suscripcion_valida_hasta = %s, consultas = 0 WHERE telegram_id = %s",
                    (nueva_fecha, telegram_id))
     conn.commit()
     conn.close()
