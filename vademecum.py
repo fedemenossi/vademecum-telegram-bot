@@ -1,7 +1,10 @@
+import os
 import logging
 import requests
 import json
 import mercadopago
+import mysql.connector
+from mysql.connector import Error
 #from deep_translator import GoogleTranslator
 from datetime import datetime  # <-- Esta línea soluciona tu error
 from telegram import Update,InlineKeyboardButton, InlineKeyboardMarkup
@@ -15,12 +18,37 @@ from datetime import datetime, timedelta
 
 sdk = mercadopago.SDK("TU_ACCESS_TOKEN")
 
-DB_PATH = "usuarios.db"
 CANTIDAD_GRATIS = 5
 
 TELEGRAM_TOKEN = "7976779147:AAGi_06PH9rlRho2rm5MMV7BT9n84xN6Ww4"
 OPENWEATHER_API_KEY = "1fcd18ec464cb20595a106f0bc1eb3c4"
 MAX_LEN = 4000  # un poco menos que el límite para dejar margen
+
+## Variables de base de datos
+# Conexión a la base de datos MySQL
+
+HOST_DB="centerbeam.proxy.rlwy.net"
+PORT_DB=12935
+USER_DB="root"
+#PASSWORD_DB="QbnIpcJeXYYoQYvhnPUjAALwmhmswmmg"
+PASSWORD_DB = os.environ.get("MYSQL_PASSWORD")
+DATABASE_DB="railway"
+
+
+def get_db_connection():
+    try:
+        db = mysql.connector.connect(
+        host=HOST_DB,                                    
+        port=PORT_DB,
+        user=USER_DB,
+        password=PASSWORD_DB,
+        database=DATABASE_DB)
+        if db.is_connected():
+            print("Conexión exitosa a la base de datos MySQL")
+            return db
+    except Error as e:
+        print(f"Error al conectar a la base de datos: {e}")
+        return None
 
 
 # 🧠 Comando /start
@@ -34,20 +62,21 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 🧠 creacion de usuarios
 def get_or_create_user(telegram_id, username, nombre, apellido):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios WHERE telegram_id = ?", (telegram_id,))
-    user = cursor.fetchone()
+    if conn:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM usuarios WHERE telegram_id = ?", (telegram_id,))
+        user = cursor.fetchone()
 
-    if user is None:
-        cursor.execute("INSERT INTO usuarios (telegram_id, username, nombre, apellido, consultas, suscripcion_valida_hasta) VALUES (?, ?, ?, ?, 0, NULL)",
+        if user is None:
+            cursor.execute("INSERT INTO usuarios (telegram_id, username, nombre, apellido, consultas, suscripcion_valida_hasta) VALUES (?, ?, ?, ?, 0, NULL)",
                        (telegram_id, username, nombre, apellido))
-        conn.commit()
-    conn.close()
+            conn.commit()
+        conn.close()
     
     
 def puede_usar_bot(telegram_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = ?", (telegram_id,))
     row = cursor.fetchone()
@@ -67,7 +96,7 @@ def puede_usar_bot(telegram_id):
 
 
 def registrar_uso(telegram_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE usuarios SET consultas = consultas + 1 WHERE telegram_id = ?", (telegram_id,))
     conn.commit()
@@ -75,7 +104,7 @@ def registrar_uso(telegram_id):
 
 # Activar suscripción manualmente (ejemplo)
 def activar_suscripcion(telegram_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     nueva_fecha = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
     cursor.execute("UPDATE usuarios SET suscripcion_valida_hasta = ?, consultas = 0 WHERE telegram_id = ?",
