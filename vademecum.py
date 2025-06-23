@@ -51,7 +51,7 @@ def get_db_connection():
 
 # 🧠 Comando /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hola! Preguntame el clima para mañana en una ciudad. Ej: 'clima en Mendoza mañana'.")
+    await update.message.reply_text("Hola! Preguntame el clima para mañana en una ciudad. Ej: 'clima en Mendoza mañana'. Prueba Nestor...")
     
 # 🧠 Comando /help
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
