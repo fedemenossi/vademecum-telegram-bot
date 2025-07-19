@@ -42,7 +42,7 @@ def get_db_connection():
         user=USER_DB,
         password=PASSWORD_DB,
         database=DATABASE_DB)
-        print("Conexión exitosa a la base de datos MySQL")
+        print("Conexión exitosa a la base de datos MySQL, siiii")
         return db
     except MySQLError  as e:
         print(f"Error al conectar a la base de datos: {e}")
