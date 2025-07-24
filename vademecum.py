@@ -4,10 +4,17 @@ from pymysql.err import MySQLError
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
+import openai
+
 
 # --- Configuración
 TELEGRAM_TOKEN = "TU_TELEGRAM_TOKEN"
 CANTIDAD_GRATIS = 5
+
+# --- Configuración de OpenAI
+openai.api_key = os.getenv("OPENAI_API_KEY")
+# O directamente, aunque no se recomienda dejarla hardcodeada:
+# openai.api_key = "TU-API-KEY-AQUI"
 
 # --- Config DB
 HOST_DB = "centerbeam.proxy.rlwy.net"
@@ -43,10 +50,17 @@ def get_or_create_user(telegram_id, username, nombre, apellido):
 
 def puede_usar_bot(telegram_id):
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = %s", (telegram_id,))
-    row = cursor.fetchone()
-    conn.close()
+    row = None
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = %s", (telegram_id,))
+        row = cursor.fetchone()
+    except MySQLError as e:
+        print(f"Error ejecutando consulta: {e}")
+        return False, "Error de base de datos"
+    finally:
+        if conn:
+            conn.close()
 
     if row is None:
         return False, "Usuario no registrado"
@@ -75,6 +89,24 @@ def activar_suscripcion(telegram_id):
     conn.commit()
     conn.close()
 
+
+# --- Funciones de ChatGPT
+def preguntar_a_chatgpt(mensaje_usuario):
+    try:
+        respuesta = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # o "gpt-4o" si tenés acceso
+            messages=[
+                {"role": "system", "content": "Sos un asistente experto y respondés preguntas de salud y medicamentos de manera clara y breve."},
+                {"role": "user", "content": mensaje_usuario}
+            ],
+            max_tokens=800,  # Ajustá según necesidad
+            temperature=0.7
+        )
+        return respuesta.choices[0].message.content.strip()
+    except Exception as e:
+        return f"⚠️ Error consultando a ChatGPT: {e}"
+
+
 # --- Handlers de Telegram
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,14 +128,18 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if permitido:
         registrar_uso(telegram_id)
         # Aquí va tu integración con ChatGPT:
-        prompt = update.message.text
+        pregunta = update.message.text
+        respuesta_ia = preguntar_a_chatgpt(pregunta)
+        await update.message.reply_text(respuesta_ia)
+        
+        #prompt = update.message.text
 
         # -- INTEGRACIÓN CON CHATGPT (ejemplo usando requests) --
         # response = requests.post("https://api.openai.com/v1/chat/completions", ...)
         # respuesta = response.json()['choices'][0]['message']['content']
 
-        respuesta = "Respuesta de ChatGPT (implementá aquí tu integración)"
-        await update.message.reply_text(respuesta)
+        #respuesta = "Respuesta de ChatGPT (implementá aquí tu integración)"
+        #await update.message.reply_text(respuesta)
     else:
         # url_pago = crear_preferencia_pago(telegram_id)
         await update.message.reply_text(
@@ -112,6 +148,8 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     activar_suscripcion(update.effective_user.id)
     await update.message.reply_text("✅ ¡Gracias por tu pago! Suscripción activada.")
+
+
 
 # --- Arrancar el bot
 app = Application.builder().token(TELEGRAM_TOKEN).build()
