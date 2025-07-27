@@ -15,11 +15,7 @@ TELEGRAM_TOKEN = "7976779147:AAGi_06PH9rlRho2rm5MMV7BT9n84xN6Ww4"
 CANTIDAD_GRATIS = 5
 
 # Cargar variables de entorno desde un archivo .env
-if os.path.exists('.env'):
-    load_dotenv()
-else:
-    print("⚠️ No se encontró el archivo .env. Asegúrate de tenerlo configurado correctamente.")
-    exit(1)
+load_dotenv()
 
 # Configurar tu API key de OpenAI desde una variable de entorno
 if "OPENAI_API_KEY" not in os.environ:
