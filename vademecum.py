@@ -4,24 +4,38 @@ from pymysql.err import MySQLError
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
-import openai
+from openai import OpenAI
+from dotenv import load_dotenv
+
+
 
 
 # --- Configuración
-TELEGRAM_TOKEN = "TU_TELEGRAM_TOKEN"
+TELEGRAM_TOKEN = "7976779147:AAGi_06PH9rlRho2rm5MMV7BT9n84xN6Ww4"
 CANTIDAD_GRATIS = 5
 
-# --- Configuración de OpenAI
-openai.api_key = os.getenv("OPENAI_API_KEY")
-# O directamente, aunque no se recomienda dejarla hardcodeada:
-# openai.api_key = "TU-API-KEY-AQUI"
+# Cargar variables de entorno desde un archivo .env
+if os.path.exists('.env'):
+    load_dotenv()
+else:
+    print("⚠️ No se encontró el archivo .env. Asegúrate de tenerlo configurado correctamente.")
+    exit(1)
+
+# Configurar tu API key de OpenAI desde una variable de entorno
+if "OPENAI_API_KEY" not in os.environ:
+    print("⚠️ No se encontró la variable de entorno OPENAI_API_KEY. Asegúrate de tenerla configurada.")
+    exit(1)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 
 # --- Config DB
-HOST_DB = "centerbeam.proxy.rlwy.net"
-PORT_DB = 12935
-USER_DB = "root"
-PASSWORD_DB = "QbnIpcJeXYYoQYvhnPUjAALwmhmswmmg"
-DATABASE_DB = "railway"
+# Configuración de la base de datos
+# Asegúrate de que estas variables estén definidas en tu archivo .env
+HOST_DB = os.getenv("HOST_DB")
+PORT_DB = int(os.getenv("PORT_DB", 3306))
+USER_DB = os.getenv("USER_DB")
+PASSWORD_DB = os.getenv("PASSWORD_DB")
+DATABASE_DB = os.getenv("DATABASE_DB")
 
 def get_db_connection():
     try:
@@ -93,18 +107,21 @@ def activar_suscripcion(telegram_id):
 # --- Funciones de ChatGPT
 def preguntar_a_chatgpt(mensaje_usuario):
     try:
-        respuesta = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # o "gpt-4o" si tenés acceso
+        respuesta = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Sos un asistente experto y respondés preguntas de salud y medicamentos de manera clara y breve."},
+                {"role": "system", "content": "Sos un asistente amable y experto."},
                 {"role": "user", "content": mensaje_usuario}
             ],
-            max_tokens=800,  # Ajustá según necesidad
+            max_tokens=800,
             temperature=0.7
         )
+        if not respuesta.choices:
+            return "No se recibió respuesta de ChatGPT."
         return respuesta.choices[0].message.content.strip()
     except Exception as e:
         return f"⚠️ Error consultando a ChatGPT: {e}"
+
 
 
 # --- Handlers de Telegram

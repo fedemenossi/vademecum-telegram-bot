@@ -1,7 +1,10 @@
-import openai
+import os
 from openai import OpenAI
 
-client = OpenAI(api_key="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")
+# Configurar tu API key directamente o usando variables de entorno
+client = OpenAI(
+    api_key="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"
+)
 
 def responder_ia(pregunta):
     respuesta = client.chat.completions.create(
@@ -13,17 +16,7 @@ def responder_ia(pregunta):
     )
     return respuesta.choices[0].message.content.strip()
 
-
-# Bucle de conversación
-##while True:
-##    entrada = input("Vos: ")
-##    if entrada.lower() in ["salir", "exit", "bye"]:
-##        print("Bot: ¡Hasta la próxima!")
-##        break
-##    respuesta = responder_ia(entrada)
-##    print("Bot:", respuesta)
-    
-    # Bucle interactivo
+# Bucle interactivo
 print("Escribí tu pregunta ('salir' para terminar):")
 while True:
     entrada = input("Yo: ")
