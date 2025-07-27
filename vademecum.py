@@ -7,22 +7,14 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes, Com
 from openai import OpenAI
 from dotenv import load_dotenv
 
-##
-
-
-# --- Configuración
-TELEGRAM_TOKEN = "7976779147:AAGi_06PH9rlRho2rm5MMV7BT9n84xN6Ww4"
+# --- Configuración cantiedad de consultas gratis
 CANTIDAD_GRATIS = 5
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
 
 # Configurar tu API key de OpenAI desde una variable de entorno
-if "OPENAI_API_KEY" not in os.environ:
-    print("⚠️ No se encontró la variable de entorno OPENAI_API_KEY. Asegúrate de tenerla configurada.")
-    exit(1)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 
 # --- Config DB
 # Configuración de la base de datos
@@ -32,6 +24,7 @@ PORT_DB = int(os.getenv("PORT_DB", 3306))
 USER_DB = os.getenv("USER_DB")
 PASSWORD_DB = os.getenv("PASSWORD_DB")
 DATABASE_DB = os.getenv("DATABASE_DB")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 def get_db_connection():
     try:
