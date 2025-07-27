@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 import openai
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # --- Configuración cantiedad de consultas gratis
@@ -14,7 +15,7 @@ CANTIDAD_GRATIS = 5
 load_dotenv()
 
 # Configurar tu API key de OpenAI desde una variable de entorno
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # --- Config DB
 # Configuración de la base de datos
@@ -95,15 +96,13 @@ def activar_suscripcion(telegram_id):
 # --- Funciones de ChatGPT
 def preguntar_a_chatgpt(mensaje_usuario):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Sos un asistente amable y experto."},
                 {"role": "user", "content": mensaje_usuario}
-            ],
-            max_tokens=800,
-            temperature=0.7
-        )
+        ]       
+    )
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"⚠️ Error consultando a ChatGPT: {e}"
