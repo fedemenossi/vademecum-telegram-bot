@@ -4,7 +4,7 @@ from pymysql.err import MySQLError
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
-from openai import OpenAI
+import openai
 from dotenv import load_dotenv
 
 # --- Configuración cantiedad de consultas gratis
@@ -14,7 +14,7 @@ CANTIDAD_GRATIS = 5
 load_dotenv()
 
 # Configurar tu API key de OpenAI desde una variable de entorno
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # --- Config DB
 # Configuración de la base de datos
@@ -92,11 +92,10 @@ def activar_suscripcion(telegram_id):
     conn.commit()
     conn.close()
 
-
 # --- Funciones de ChatGPT
 def preguntar_a_chatgpt(mensaje_usuario):
     try:
-        respuesta = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Sos un asistente amable y experto."},
@@ -105,13 +104,9 @@ def preguntar_a_chatgpt(mensaje_usuario):
             max_tokens=800,
             temperature=0.7
         )
-        if not respuesta.choices:
-            return "No se recibió respuesta de ChatGPT."
-        return respuesta.choices[0].message.content.strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
         return f"⚠️ Error consultando a ChatGPT: {e}"
-
-
 
 # --- Handlers de Telegram
 
