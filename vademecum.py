@@ -7,7 +7,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes, Com
 from openai import OpenAI
 from dotenv import load_dotenv
 
-
+##
 
 
 # --- Configuración
