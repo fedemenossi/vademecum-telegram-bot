@@ -6,15 +6,54 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from openai import OpenAI
 from dotenv import load_dotenv
+# Mercado Pago SDK
+import mercadopago
 
 ## --- Configuración cantidad de consultas gratis
 CANTIDAD_GRATIS = 5
 
+
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
 
+
 # Configurar tu API key de OpenAI desde una variable de entorno
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Configurar Mercado Pago
+MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
+mp_client = mercadopago.SDK(MP_ACCESS_TOKEN) if MP_ACCESS_TOKEN else None
+# --- Funciones de ChatGPT
+def crear_preferencia_pago(telegram_id):
+    """
+    Crea una preferencia de pago en Mercado Pago y retorna el link de pago.
+    """
+    if not mp_client:
+        return None
+    try:
+        preference_data = {
+            "items": [
+                {
+                    "title": "Suscripción Vademécum Bot",
+                    "quantity": 1,
+                    "unit_price": 1000.00  # Monto en ARS, ajusta según tu necesidad
+                }
+            ],
+            "metadata": {
+                "telegram_id": str(telegram_id)
+            },
+            "back_urls": {
+                "success": "https://t.me/tu_bot",  # Cambia por tu URL
+                "failure": "https://t.me/tu_bot",
+                "pending": "https://t.me/tu_bot"
+            },
+            "auto_return": "approved"
+        }
+        preference_response = mp_client.preference().create(preference_data)
+        return preference_response["response"]["init_point"]
+    except Exception as e:
+        print(f"Error creando preferencia de pago: {e}")
+        return None
 
 # --- Config DB
 # Configuración de la base de datos
@@ -153,7 +192,15 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         respuesta_ia = preguntar_a_chatgpt(pregunta)
         await update.message.reply_text(respuesta_ia)
     else:
-        await update.message.reply_text(f"🚫 {motivo}. Por favor, pagá tu suscripción para continuar.")
+        link_pago = crear_preferencia_pago(telegram_id)
+        if link_pago:
+            await update.message.reply_text(
+                f"🚫 {motivo}. Para continuar, pagá tu suscripción aquí:\n{link_pago}"
+            )
+        else:
+            await update.message.reply_text(
+                f"🚫 {motivo}. No se pudo generar el link de pago. Contacta soporte."
+            )
 
 async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     activar_suscripcion(update.effective_user.id)
