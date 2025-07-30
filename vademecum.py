@@ -6,12 +6,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 from openai import OpenAI
 from dotenv import load_dotenv
-# Mercado Pago SDK
-import mercadopago
-#Flask para manejar pagos
 import threading
-from flask import Flask, request, jsonify
-import asyncio
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
@@ -31,41 +26,9 @@ CANTIDAD_GRATIS = 5
 # Configurar tu API key de OpenAI desde una variable de entorno
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Configurar Mercado Pago
-MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
-URL_MP = os.getenv("URL_MP")
-mp_client = mercadopago.SDK(MP_ACCESS_TOKEN) if MP_ACCESS_TOKEN else None
-# --- Funciones de ChatGPT
-def crear_preferencia_pago(telegram_id):
-    """
-    Crea una preferencia de pago en Mercado Pago y retorna el link de pago.
-    """
-    if not mp_client:
-        return None
-    try:
-        preference_data = {
-            "items": [
-                {
-                    "title": "Suscripción Vademécum Bot",
-                    "quantity": 1,
-                    "unit_price": 1000.00  # Monto en ARS, ajusta según tu necesidad
-                }
-            ],
-            "metadata": {
-                "telegram_id": str(telegram_id)
-            },
-            "back_urls": {
-                "success": URL_MP,
-                "failure": URL_MP,
-                "pending": URL_MP
-            },
-            "auto_return": "approved"
-        }
-        preference_response = mp_client.preference().create(preference_data)
-        return preference_response["response"]["init_point"]
-    except Exception as e:
-        print(f"Error creando preferencia de pago: {e}")
-        return None
+
+# Link de pago fijo de Mercado Pago
+LINK_PAGO_MP = os.getenv("LINK_PAGO_MP")  # Debe estar en tu .env
 
 
 
@@ -188,6 +151,7 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nombre = user.first_name or ""
     apellido = user.last_name or ""
 
+    # Si no existe el usuario, lo crea
     get_or_create_user(telegram_id, username, nombre, apellido)
     permitido, motivo = puede_usar_bot(telegram_id)
     if permitido:
@@ -196,52 +160,25 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         respuesta_ia = preguntar_a_chatgpt(pregunta)
         await update.message.reply_text(respuesta_ia)
     else:
-        link_pago = crear_preferencia_pago(telegram_id)
-        if link_pago:
+        if LINK_PAGO_MP:
             await update.message.reply_text(
-                f"🚫 {motivo}. Para continuar, pagá tu suscripción aquí:\n{link_pago}"
+                f"🚫 {motivo}. Para continuar, pagá tu suscripción aquí:\n{LINK_PAGO_MP}"
             )
         else:
             await update.message.reply_text(
                 f"🚫 {motivo}. No se pudo generar el link de pago. Contacta soporte."
             )
 
+
+# El comando /pagar solo informa el link de pago
 async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    activar_suscripcion(update.effective_user.id)
-    await update.message.reply_text("✅ ¡Gracias por tu pago! Suscripción activada.")
+    if LINK_PAGO_MP:
+        await update.message.reply_text(f"Para pagar tu suscripción, hacé click aquí:\n{LINK_PAGO_MP}")
+    else:
+        await update.message.reply_text("No se pudo generar el link de pago. Contacta soporte.")
 
 
-# ---- Flask Webhook para Mercado Pago ----
-flask_app = Flask(__name__)
 
-@flask_app.route("/", methods=["GET"])
-def index():
-    return "OK! Flask está corriendo 🚀"
-
-@flask_app.route("/webhook_mercadopago", methods=["POST"])
-def webhook_mercadopago():
-    data = request.get_json()
-    print("Recibí webhook:", data)
-
-    if 'type' in data and data['type'] == 'payment':
-        payment_id = data['data']['id']
-        import mercadopago
-        mp = mercadopago.SDK(MP_ACCESS_TOKEN)
-        payment = mp.payment().get(payment_id)
-        info = payment['response']
-        print("Detalles del pago:", info)
-
-        if info.get('status') == 'approved':
-            telegram_id = info.get('metadata', {}).get('telegram_id')
-            if telegram_id:
-                activar_suscripcion(telegram_id)
-                print(f"Suscripción activada para {telegram_id}")
-    return jsonify({"status": "ok"})
-
-def run_telegram():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    app.run_polling(stop_signals=[])
 
 # --- Arrancar el bot
 app = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -250,16 +187,6 @@ app.add_handler(CommandHandler("help", help_command))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
 app.add_handler(CommandHandler("pagar", pagar))
 
-#if __name__ == "__main__":
-#    print("🤖 Bot iniciado...")
-#    app.run_polling()
-    
 if __name__ == "__main__":
-    # Bot en thread aparte, creando event loop
-    bot_thread = threading.Thread(target=run_telegram)
-    bot_thread.start()
-    # Flask en el main thread (necesario para Railway)
-    #port = int(os.environ.get("PORT", 8000))
-    #print(f"🌐 Flask escuchando en el puerto {port}")
-    #port = int(os.environ.get("PORT", 5000))
-    flask_app.run(host="0.0.0.0")
+    print("🤖 Bot iniciado...")
+    app.run_polling()
