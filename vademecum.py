@@ -8,20 +8,32 @@ from openai import OpenAI
 from dotenv import load_dotenv
 # Mercado Pago SDK
 import mercadopago
-
-## --- Configuración cantidad de consultas gratis
-CANTIDAD_GRATIS = 5
-
+#Flask para manejar pagos
+import threading
+from flask import Flask, request, jsonify
+import asyncio
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
+# --- Config DB
+# Configuración de la base de datos
+# Asegúrate de que estas variables estén definidas en tu archivo .env
+HOST_DB = os.getenv("HOST_DB")
+PORT_DB = int(os.getenv("PORT_DB", 3306))
+USER_DB = os.getenv("USER_DB")
+PASSWORD_DB = os.getenv("PASSWORD_DB")
+DATABASE_DB = os.getenv("DATABASE_DB")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
+## --- Configuración cantidad de consultas gratis
+CANTIDAD_GRATIS = 5
 
 # Configurar tu API key de OpenAI desde una variable de entorno
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Configurar Mercado Pago
 MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
+URL_MP = os.getenv("URL_MP")
 mp_client = mercadopago.SDK(MP_ACCESS_TOKEN) if MP_ACCESS_TOKEN else None
 # --- Funciones de ChatGPT
 def crear_preferencia_pago(telegram_id):
@@ -43,9 +55,9 @@ def crear_preferencia_pago(telegram_id):
                 "telegram_id": str(telegram_id)
             },
             "back_urls": {
-                "success": "https://t.me/tu_bot",  # Cambia por tu URL
-                "failure": "https://t.me/tu_bot",
-                "pending": "https://t.me/tu_bot"
+                "success": URL_MP,
+                "failure": URL_MP,
+                "pending": URL_MP
             },
             "auto_return": "approved"
         }
@@ -55,15 +67,7 @@ def crear_preferencia_pago(telegram_id):
         print(f"Error creando preferencia de pago: {e}")
         return None
 
-# --- Config DB
-# Configuración de la base de datos
-# Asegúrate de que estas variables estén definidas en tu archivo .env
-HOST_DB = os.getenv("HOST_DB")
-PORT_DB = int(os.getenv("PORT_DB", 3306))
-USER_DB = os.getenv("USER_DB")
-PASSWORD_DB = os.getenv("PASSWORD_DB")
-DATABASE_DB = os.getenv("DATABASE_DB")
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
 
 def get_db_connection():
     try:
@@ -207,6 +211,33 @@ async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ ¡Gracias por tu pago! Suscripción activada.")
 
 
+# ---- Flask Webhook para Mercado Pago ----
+flask_app = Flask(__name__)
+
+@flask_app.route("/webhook_mercadopago", methods=["POST"])
+def webhook_mercadopago():
+    data = request.get_json()
+    print("Recibí webhook:", data)
+
+    if 'type' in data and data['type'] == 'payment':
+        payment_id = data['data']['id']
+        import mercadopago
+        mp = mercadopago.SDK(MP_ACCESS_TOKEN)
+        payment = mp.payment().get(payment_id)
+        info = payment['response']
+        print("Detalles del pago:", info)
+
+        if info.get('status') == 'approved':
+            telegram_id = info.get('metadata', {}).get('telegram_id')
+            if telegram_id:
+                activar_suscripcion(telegram_id)
+                print(f"Suscripción activada para {telegram_id}")
+    return jsonify({"status": "ok"})
+
+def run_telegram():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    app.run_polling()
 
 # --- Arrancar el bot
 app = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -215,6 +246,15 @@ app.add_handler(CommandHandler("help", help_command))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
 app.add_handler(CommandHandler("pagar", pagar))
 
+#if __name__ == "__main__":
+#    print("🤖 Bot iniciado...")
+#    app.run_polling()
+    
 if __name__ == "__main__":
-    print("🤖 Bot iniciado...")
-    app.run_polling()
+    # Bot en thread aparte, creando event loop
+    bot_thread = threading.Thread(target=run_telegram)
+    bot_thread.start()
+    # Flask en el main thread (necesario para Railway)
+    port = int(os.environ.get("PORT", 8000))
+    print(f"🌐 Flask escuchando en el puerto {port}")
+    flask_app.run(host="0.0.0.0", port=port)
