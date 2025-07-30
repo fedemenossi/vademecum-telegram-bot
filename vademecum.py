@@ -7,6 +7,12 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes, Com
 from openai import OpenAI
 from dotenv import load_dotenv
 import threading
+# Mercado Pago SDK
+import mercadopago
+#Flask para manejar pagos
+import threading
+from flask import Flask, request, jsonify
+import asyncio
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
@@ -28,9 +34,9 @@ CANTIDAD_GRATIS = 5
 # Configurar tu API key de OpenAI desde una variable de entorno
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-
-
-
+MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
+URL_MP = os.getenv("URL_MP")
+# --- Funciones de ChatGPT
 
 
 def get_db_connection():
@@ -178,7 +184,37 @@ async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("No se pudo generar el link de pago. Contacta soporte.")
 
+# ---- Flask Webhook para Mercado Pago ----
+flask_app = Flask(__name__)
 
+@flask_app.route("/", methods=["GET"])
+def index():
+    return "OK! Flask está corriendo 🚀"
+
+@flask_app.route("/webhook_mercadopago", methods=["POST"])
+def webhook_mercadopago():
+    data = request.get_json()
+    print("Recibí webhook:", data)
+
+    if 'type' in data and data['type'] == 'payment':
+        payment_id = data['data']['id']
+        import mercadopago
+        mp = mercadopago.SDK(MP_ACCESS_TOKEN)
+        payment = mp.payment().get(payment_id)
+        info = payment['response']
+        print("Detalles del pago:", info)
+
+        if info.get('status') == 'approved':
+            telegram_id = info.get('metadata', {}).get('telegram_id')
+            if telegram_id:
+                activar_suscripcion(telegram_id)
+                print(f"Suscripción activada para {telegram_id}")
+    return jsonify({"status": "ok"})
+
+def run_telegram():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    app.run_polling(stop_signals=[])
 
 
 # --- Arrancar el bot
@@ -189,5 +225,11 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje)
 #app.add_handler(CommandHandler("pagar", pagar))
 
 if __name__ == "__main__":
-    print("🤖 Bot iniciado...")
-    app.run_polling()
+    # Bot en thread aparte, creando event loop
+    bot_thread = threading.Thread(target=run_telegram)
+    bot_thread.start()
+    # Flask en el main thread (necesario para Railway)
+    #port = int(os.environ.get("PORT", 8000))
+    #print(f"🌐 Flask escuchando en el puerto {port}")
+    #port = int(os.environ.get("PORT", 5000))
+    flask_app.run(host="0.0.0.0")
