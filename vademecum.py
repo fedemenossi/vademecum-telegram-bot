@@ -237,7 +237,7 @@ def webhook_mercadopago():
 def run_telegram():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    app.run_polling()
+    app.run_polling(stop_signals=[])
 
 # --- Arrancar el bot
 app = Application.builder().token(TELEGRAM_TOKEN).build()
