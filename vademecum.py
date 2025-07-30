@@ -256,5 +256,5 @@ if __name__ == "__main__":
     bot_thread.start()
     # Flask en el main thread (necesario para Railway)
     #port = int(os.environ.get("PORT", 8000))
-    print(f"🌐 Flask escuchando en el puerto {port}")
+    #print(f"🌐 Flask escuchando en el puerto {port}")
     flask_app.run(host="0.0.0.0")
