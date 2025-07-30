@@ -214,6 +214,10 @@ async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---- Flask Webhook para Mercado Pago ----
 flask_app = Flask(__name__)
 
+@flask_app.route("/", methods=["GET"])
+def index():
+    return "OK! Flask está corriendo 🚀"
+
 @flask_app.route("/webhook_mercadopago", methods=["POST"])
 def webhook_mercadopago():
     data = request.get_json()
