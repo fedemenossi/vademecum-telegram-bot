@@ -261,5 +261,5 @@ if __name__ == "__main__":
     # Flask en el main thread (necesario para Railway)
     #port = int(os.environ.get("PORT", 8000))
     #print(f"🌐 Flask escuchando en el puerto {port}")
-    port = int(os.environ.get("PORT", 5000))
-    flask_app.run(host="0.0.0.0", port=port)
+    #port = int(os.environ.get("PORT", 5000))
+    flask_app.run(host="0.0.0.0")
