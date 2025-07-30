@@ -19,6 +19,8 @@ USER_DB = os.getenv("USER_DB")
 PASSWORD_DB = os.getenv("PASSWORD_DB")
 DATABASE_DB = os.getenv("DATABASE_DB")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+# Link de pago fijo de Mercado Pago
+LINK_PAGO_MP = os.getenv("URL_MP")  # Debe estar en tu .env
 
 ## --- Configuración cantidad de consultas gratis
 CANTIDAD_GRATIS = 5
@@ -27,8 +29,7 @@ CANTIDAD_GRATIS = 5
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-# Link de pago fijo de Mercado Pago
-LINK_PAGO_MP = os.getenv("LINK_PAGO_MP")  # Debe estar en tu .env
+
 
 
 
@@ -185,7 +186,7 @@ app = Application.builder().token(TELEGRAM_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
-app.add_handler(CommandHandler("pagar", pagar))
+#app.add_handler(CommandHandler("pagar", pagar))
 
 if __name__ == "__main__":
     print("🤖 Bot iniciado...")
