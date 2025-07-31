@@ -146,7 +146,7 @@ def preguntar_a_chatgpt(mensaje_usuario):
 # --- Handlers de Telegram
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hola! Soy un bot con IA. Escribí tu consulta.")
+    await update.message.reply_text("Hola! Soy tu medico en linea, puedes consultarme lo que quieras.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Comandos:\n/start - Iniciar\n/help - Ayuda")
@@ -210,6 +210,11 @@ def webhook_mercadopago():
                 activar_suscripcion(telegram_id)
                 print(f"Suscripción activada para {telegram_id}")
     return jsonify({"status": "ok"})
+
+@flask_app.route("/webhook_mercadopago", methods=["GET"])
+def webhook_mercadopago_get():
+    return "Webhook de Mercado Pago activo", 200    
+
 
 def run_telegram():
     loop = asyncio.new_event_loop()
