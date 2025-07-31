@@ -69,6 +69,37 @@ def get_or_create_user(telegram_id, username, nombre, apellido):
         print(f"Error en get_or_create_user: {e}")
     finally:
         conn.close()
+        
+def crear_preferencia_pago(telegram_id):
+    if not MP_ACCESS_TOKEN:
+        print("No hay access token de Mercado Pago configurado.")
+        return None
+    try:
+        mp = mercadopago.SDK(MP_ACCESS_TOKEN)
+        preference_data = {
+            "items": [
+                {
+                    "title": "Suscripción Vademécum Bot",
+                    "quantity": 1,
+                    "unit_price": 1000.00  # Cambia el precio si lo necesitás
+                }
+            ],
+            "metadata": {
+                "telegram_id": str(telegram_id)
+            },
+            "back_urls": {
+                "success": "https://t.me/tu_bot",  # Cambia por tu bot real si querés
+                "failure": "https://t.me/tu_bot",
+                "pending": "https://t.me/tu_bot"
+            },
+            "auto_return": "approved"
+        }
+        preference_response = mp.preference().create(preference_data)
+        return preference_response["response"]["init_point"]
+    except Exception as e:
+        print(f"Error creando preferencia de pago: {e}")
+        return None
+
 
 def puede_usar_bot(telegram_id):
     conn = get_db_connection()
@@ -168,9 +199,10 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
         respuesta_ia = preguntar_a_chatgpt(pregunta)
         await update.message.reply_text(respuesta_ia)
     else:
-        if LINK_PAGO_MP:
+        link_pago = crear_preferencia_pago(telegram_id)
+        if link_pago:
             await update.message.reply_text(
-                f"🚫 {motivo}. Para continuar, pagá tu suscripción aquí:\n{LINK_PAGO_MP}"
+                f"🚫 {motivo}. Para continuar, pagá tu suscripción aquí:\n{link_pago}"
             )
         else:
             await update.message.reply_text(
@@ -180,10 +212,13 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # El comando /pagar solo informa el link de pago
 async def pagar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if LINK_PAGO_MP:
-        await update.message.reply_text(f"Para pagar tu suscripción, hacé click aquí:\n{LINK_PAGO_MP}")
+    telegram_id = update.effective_user.id
+    link_pago = crear_preferencia_pago(telegram_id)
+    if link_pago:
+        await update.message.reply_text(f"Para pagar tu suscripción, hacé click aquí:\n{link_pago}")
     else:
         await update.message.reply_text("No se pudo generar el link de pago. Contacta soporte.")
+
 
 # ---- Flask Webhook para Mercado Pago ----
 flask_app = Flask(__name__)
@@ -247,7 +282,7 @@ app = Application.builder().token(TELEGRAM_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help_command))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, manejar_mensaje))
-#app.add_handler(CommandHandler("pagar", pagar))
+app.add_handler(CommandHandler("pagar", pagar))
 
 if __name__ == "__main__":
     # Bot en thread aparte, creando event loop
