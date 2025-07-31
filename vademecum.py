@@ -84,8 +84,9 @@ def puede_usar_bot(telegram_id):
     finally:
         conn.close()
 
+    # Si el usuario no existe, permitir la consulta (se creará en get_or_create_user)
     if not row:
-        return False, "Usuario no registrado"
+        return True, "Consulta gratuita"
     consultas, suscripcion_valida_hasta = row
     if suscripcion_valida_hasta:
         try:
