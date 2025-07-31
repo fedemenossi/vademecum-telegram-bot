@@ -192,13 +192,31 @@ flask_app = Flask(__name__)
 def index():
     return "OK! Flask está corriendo 🚀"
 
-@flask_app.route("/webhook_mercadopago", methods=["POST"])
-def webhook_mercadopago():
-    data = request.get_json()
-    print("Recibí webhook:", data)
 
-    if 'type' in data and data['type'] == 'payment':
-        payment_id = data['data']['id']
+@flask_app.route("/webhook_mercadopago", methods=["POST", "GET"])
+def webhook_mercadopago():
+    # Soporta tanto POST (con JSON) como GET (con query string)
+    payment_id = None
+    topic = None
+    if request.method == "POST":
+        data = request.get_json() or {}
+        print("Recibí webhook POST:", data)
+        # Intentar obtener payment_id y topic desde el body
+        topic = data.get('topic') or data.get('type')
+        if 'data' in data and isinstance(data['data'], dict):
+            payment_id = data['data'].get('id')
+        # Si no viene en el body, buscar en query string
+        if not payment_id:
+            payment_id = request.args.get('id')
+        if not topic:
+            topic = request.args.get('topic')
+    else:
+        # GET: Mercado Pago puede enviar topic e id por query string
+        payment_id = request.args.get('id')
+        topic = request.args.get('topic')
+        print(f"Recibí webhook GET: topic={topic}, id={payment_id}")
+
+    if topic == 'payment' and payment_id:
         import mercadopago
         mp = mercadopago.SDK(MP_ACCESS_TOKEN)
         payment = mp.payment().get(payment_id)
@@ -210,7 +228,8 @@ def webhook_mercadopago():
             if telegram_id:
                 activar_suscripcion(telegram_id)
                 print(f"Suscripción activada para {telegram_id}")
-    return jsonify({"status": "ok"})
+        return jsonify({"status": "ok"})
+    return jsonify({"status": "ignored"})
 
 @flask_app.route("/webhook_mercadopago", methods=["GET"])
 def webhook_mercadopago_get():
