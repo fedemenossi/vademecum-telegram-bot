@@ -188,8 +188,9 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nombre = user.first_name or ""
     apellido = user.last_name or ""
 
-    # Si no existe el usuario, lo crea
+    # Siempre intenta crear el usuario antes de chequear permisos
     get_or_create_user(telegram_id, username, nombre, apellido)
+    # Vuelve a consultar el estado después de crear (o asegurar) el usuario
     permitido, motivo = puede_usar_bot(telegram_id)
     if permitido:
         registrar_uso(telegram_id)
