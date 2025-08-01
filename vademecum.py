@@ -225,9 +225,10 @@ flask_app = Flask(__name__)
 def index():
     return "OK! Flask está corriendo 🚀"
 
+
 @flask_app.route("/webhook_mercadopago2", methods=["GET"])
 def webhook_mercadopago_get():
-    return "Webhook activo para Mercado Pago", 200
+    return "Webhook de Mercado Pago activo", 200    
 
 @flask_app.route("/webhook_mercadopago", methods=["POST", "GET"])
 def webhook_mercadopago():
@@ -267,9 +268,7 @@ def webhook_mercadopago():
         return jsonify({"status": "ok"})
     return jsonify({"status": "ignored"})
 
-@flask_app.route("/webhook_mercadopago", methods=["GET"])
-def webhook_mercadopago_get():
-    return "Webhook de Mercado Pago activo", 200    
+
 
 
 def run_telegram():
