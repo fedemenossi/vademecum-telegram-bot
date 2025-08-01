@@ -25,8 +25,6 @@ USER_DB = os.getenv("USER_DB")
 PASSWORD_DB = os.getenv("PASSWORD_DB")
 DATABASE_DB = os.getenv("DATABASE_DB")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-# Link de pago fijo de Mercado Pago
-LINK_PAGO_MP = os.getenv("URL_MP")  # Debe estar en tu .env
 
 ## --- Configuración cantidad de consultas gratis
 CANTIDAD_GRATIS = 5
@@ -88,9 +86,9 @@ def crear_preferencia_pago(telegram_id):
                 "telegram_id": str(telegram_id)
             },
             "back_urls": {
-                "success": "https://t.me/tu_bot",  # Cambia por tu bot real si querés
-                "failure": "https://t.me/tu_bot",
-                "pending": "https://t.me/tu_bot"
+                "success": "hhttps://t.me/medicoenlinea_bot",  # Cambia por tu bot real si querés
+                "failure": "https://prueba-production-a391.up.railway.app/",
+                "pending": "https://prueba-production-a391.up.railway.app/"
             },
             "auto_return": "approved"
         }
