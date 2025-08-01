@@ -225,11 +225,11 @@ flask_app = Flask(__name__)
 def index():
     return "OK! Flask está corriendo 🚀"
 
-@flask_app.route("/webhook_mercadopago", methods=["GET"])
+@flask_app.route("/webhook_mercadopago2", methods=["GET"])
 def webhook_mercadopago_get():
     return "Webhook activo para Mercado Pago", 200
 
-@flask_app.route("/webhook_mercadopago", methods=["POST"])
+@flask_app.route("/webhook_mercadopago", methods=["POST", "GET"])
 def webhook_mercadopago():
     # Soporta tanto POST (con JSON) como GET (con query string)
     payment_id = None
