@@ -15,6 +15,12 @@ from flask import Flask, request, jsonify
 import asyncio
 import logging
 
+# Configurar el modo de prueba
+# Cambia 'modo_test' a "NO" para producción
+# En modo_test, se usa un token de prueba y no se activa la suscripción real
+# En modo NO, se usa el token real y se activa la suscripción
+modo_test="SI"  # Cambia a "NO" para producción
+
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -38,7 +44,13 @@ CANTIDAD_GRATIS = 5
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 #MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
-MP_ACCESS_TOKEN = os.getenv("TEST_ACCESS_TOKEN")
+#MP_ACCESS_TOKEN = os.getenv("TEST_ACCESS_TOKEN")
+
+if modo_test=='SI':
+    MP_ACCESS_TOKEN = os.getenv("TEST_ACCESS_TOKEN")
+else:
+    MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
+
 
 
 URL_MP = os.getenv("URL_MP")
@@ -87,7 +99,7 @@ def crear_preferencia_pago(telegram_id):
                 {
                     "title": "Suscripción Vademecum Bot",
                     "quantity": 1,
-                    "unit_price": 10.00  # Cambia el precio si lo necesitás
+                    "unit_price": 100.00  # Cambia el precio si lo necesitás
                 }
             ],
             "metadata": {
@@ -203,10 +215,13 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Vuelve a consultar el estado después de crear (o asegurar) el usuario
     permitido, motivo = puede_usar_bot(telegram_id)
     if permitido:
-        registrar_uso(telegram_id)
-        pregunta = update.message.text
-        respuesta_ia = preguntar_a_chatgpt(pregunta)
-        await update.message.reply_text(respuesta_ia)
+        try:
+            registrar_uso(telegram_id)
+        except Exception as e:
+            logging.error(f"Error registrando uso: {e}")
+            pregunta = update.message.text
+            respuesta_ia = preguntar_a_chatgpt(pregunta)
+            await update.message.reply_text(respuesta_ia)
     else:
         link_pago = crear_preferencia_pago(telegram_id)
         if link_pago:
