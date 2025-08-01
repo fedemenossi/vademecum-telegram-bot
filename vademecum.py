@@ -13,6 +13,11 @@ import mercadopago
 import threading
 from flask import Flask, request, jsonify
 import asyncio
+import logging
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
@@ -47,7 +52,7 @@ def get_db_connection():
             database=DATABASE_DB
         )
     except MySQLError as e:
-        print(f"Error al conectar a la base de datos: {e}")
+        logging.error(f"Error al conectar a la base de datos: {e}")
         return None
 
 def get_or_create_user(telegram_id, username, nombre, apellido):
@@ -64,13 +69,13 @@ def get_or_create_user(telegram_id, username, nombre, apellido):
                 )
                 conn.commit()
     except MySQLError as e:
-        print(f"Error en get_or_create_user: {e}")
+        logging.error(f"Error en get_or_create_user: {e}")
     finally:
         conn.close()
         
 def crear_preferencia_pago(telegram_id):
     if not MP_ACCESS_TOKEN:
-        print("No hay access token de Mercado Pago configurado.")
+        logging.error("No hay access token de Mercado Pago configurado.")
         return None
     try:
         mp = mercadopago.SDK(MP_ACCESS_TOKEN)
@@ -95,7 +100,7 @@ def crear_preferencia_pago(telegram_id):
         preference_response = mp.preference().create(preference_data)
         return preference_response["response"]["init_point"]
     except Exception as e:
-        print(f"Error creando preferencia de pago: {e}")
+        logging.error(f"Error creando preferencia de pago: {e}")
         return None
 
 
@@ -108,14 +113,16 @@ def puede_usar_bot(telegram_id):
             cursor.execute("SELECT consultas, suscripcion_valida_hasta FROM usuarios WHERE telegram_id = %s", (telegram_id,))
             row = cursor.fetchone()
     except MySQLError as e:
-        print(f"Error ejecutando consulta: {e}")
+        logging.error(f"Error ejecutando consulta: {e}")
         return False, "Error de base de datos"
     finally:
         conn.close()
+        
 
-    # Si el usuario no existe, permitir la consulta (se creará en get_or_create_user)
+    # Si el usuario no existe, NO permitir la consulta
     if not row:
-        return True, "Consulta gratuita"
+        return False, "Usuario no registrado"
+
     consultas, suscripcion_valida_hasta = row
     if suscripcion_valida_hasta:
         try:
@@ -137,7 +144,7 @@ def registrar_uso(telegram_id):
             cursor.execute("UPDATE usuarios SET consultas = consultas + 1 WHERE telegram_id = %s", (telegram_id,))
             conn.commit()
     except MySQLError as e:
-        print(f"Error en registrar_uso: {e}")
+        logging.error(f"Error en registrar_uso: {e}")
     finally:
         conn.close()
 
@@ -154,7 +161,7 @@ def activar_suscripcion(telegram_id):
             )
             conn.commit()
     except MySQLError as e:
-        print(f"Error en activar_suscripcion: {e}")
+        logging.error(f"Error en activar_suscripcion: {e}")
     finally:
         conn.close()
 
@@ -170,7 +177,7 @@ def preguntar_a_chatgpt(mensaje_usuario):
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Error consultando a ChatGPT: {e}")
+        logging.error(f"Error consultando a ChatGPT: {e}")
         return "⚠️ Error consultando a ChatGPT. Intenta nuevamente."
 
 # --- Handlers de Telegram
@@ -238,7 +245,7 @@ def webhook_mercadopago():
     topic = None
     if request.method == "POST":
         data = request.get_json() or {}
-        print("Recibí webhook POST:", data)
+        logging.info("Recibí webhook POST: %s", data)
         # Intentar obtener payment_id y topic desde el body
         topic = data.get('topic') or data.get('type')
         if 'data' in data and isinstance(data['data'], dict):
@@ -252,20 +259,20 @@ def webhook_mercadopago():
         # GET: Mercado Pago puede enviar topic e id por query string
         payment_id = request.args.get('id')
         topic = request.args.get('topic')
-        print(f"Recibí webhook GET: topic={topic}, id={payment_id}")
+        logging.info("Recibí webhook GET: topic=%s, id=%s", topic, payment_id)
 
     if topic == 'payment' and payment_id:
         import mercadopago
         mp = mercadopago.SDK(MP_ACCESS_TOKEN)
         payment = mp.payment().get(payment_id)
         info = payment['response']
-        print("Detalles del pago:", info)
+        logging.info("Detalles del pago: %s", info)
 
         if info.get('status') == 'approved':
             telegram_id = info.get('metadata', {}).get('telegram_id')
             if telegram_id:
                 activar_suscripcion(telegram_id)
-                print(f"Suscripción activada para {telegram_id}")
+                logging.info("Suscripción activada para %s", telegram_id)
         return jsonify({"status": "ok"})
     return jsonify({"status": "ignored"})
 
