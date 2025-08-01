@@ -87,7 +87,7 @@ def crear_preferencia_pago(telegram_id):
                 {
                     "title": "Suscripción Vademecum Bot",
                     "quantity": 1,
-                    "unit_price": 100.00  # Cambia el precio si lo necesitás
+                    "unit_price": 10.00  # Cambia el precio si lo necesitás
                 }
             ],
             "metadata": {
