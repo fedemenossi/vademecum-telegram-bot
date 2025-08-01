@@ -37,7 +37,9 @@ CANTIDAD_GRATIS = 5
 # Configurar tu API key de OpenAI desde una variable de entorno
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
+#MP_ACCESS_TOKEN = os.getenv("MP_ACCESS_TOKEN")
+TEST_ACCESS_TOKEN = os.getenv("TEST_ACCESS_TOKEN")
+
 URL_MP = os.getenv("URL_MP")
 # --- Funciones de ChatGPT
 
