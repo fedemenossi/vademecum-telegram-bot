@@ -77,9 +77,9 @@ def crear_preferencia_pago(telegram_id):
         preference_data = {
             "items": [
                 {
-                    "title": "Suscripción Vademécum Bot",
+                    "title": "Suscripción Vademecum Bot",
                     "quantity": 1,
-                    "unit_price": 1000.00  # Cambia el precio si lo necesitás
+                    "unit_price": 100.00  # Cambia el precio si lo necesitás
                 }
             ],
             "metadata": {
