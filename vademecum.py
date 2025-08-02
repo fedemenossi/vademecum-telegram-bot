@@ -105,11 +105,13 @@ def crear_preferencia_pago(telegram_id):
             "metadata": {
                 "telegram_id": str(telegram_id)
             },
-           # "back_urls": {
-            #    "success": "hhttps://t.me/medicoenlinea_bot",  # Cambia por tu bot real si querés
-             #   "failure": "https://prueba-production-a391.up.railway.app/",
-              #  "pending": "https://prueba-production-a391.up.railway.app/"
-            #},
+            #notification_url: URL_MP + "/webhook_mercadopago",
+            
+            "back_urls": {
+                "success": URL_MP + "/webhook_mercadopago",  # Cambia por tu bot real si querés
+                "failure": "https://prueba-production-a391.up.railway.app/",
+                "pending": "https://prueba-production-a391.up.railway.app/"
+            },
             "auto_return": "approved"
         }
         preference_response = mp.preference().create(preference_data)
