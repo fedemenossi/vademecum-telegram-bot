@@ -19,7 +19,7 @@ import logging
 # Cambia 'modo_test' a "NO" para producción
 # En modo_test, se usa un token de prueba y no se activa la suscripción real
 # En modo NO, se usa el token real y se activa la suscripción
-modo_test="SI"  # Cambia a "NO" para producción
+modo_test="NO"  # Cambia a "NO" para producción
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
