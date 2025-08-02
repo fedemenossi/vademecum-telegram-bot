@@ -292,9 +292,31 @@ def webhook_mercadopago():
 
         if info.get('status') == 'approved':
             telegram_id = info.get('metadata', {}).get('telegram_id')
-            if telegram_id:
-                activar_suscripcion(telegram_id)
-                logging.info("Suscripción activada para %s", telegram_id)
+            fecha_pago = info.get('date_approved')
+            if telegram_id and fecha_pago:
+                # Calcular nueva fecha de suscripción (fecha de pago + 30 días)
+                try:
+                    fecha_pago_dt = datetime.strptime(fecha_pago[:10], "%Y-%m-%d")
+                except Exception:
+                    fecha_pago_dt = datetime.now()
+                nueva_fecha = (fecha_pago_dt + timedelta(days=30)).strftime("%Y-%m-%d")
+                # Actualizar en la base de datos
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        with conn.cursor() as cursor:
+                            cursor.execute(
+                                "UPDATE usuarios SET suscripcion_valida_hasta = %s, consultas = 0 WHERE telegram_id = %s",
+                                (nueva_fecha, telegram_id)
+                            )
+                            conn.commit()
+                        logging.info("Suscripción activada para %s hasta %s", telegram_id, nueva_fecha)
+                    except Exception as e:
+                        logging.error(f"Error actualizando suscripción en DB: {e}")
+                    finally:
+                        conn.close()
+            else:
+                logging.warning("No se encontró telegram_id o fecha_pago en el pago aprobado.")
         return jsonify({"status": "ok"})
     return jsonify({"status": "ignored"})
 
