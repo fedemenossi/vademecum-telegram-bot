@@ -222,9 +222,9 @@ async def manejar_mensaje(update: Update, context: ContextTypes.DEFAULT_TYPE):
             registrar_uso(telegram_id)
         except Exception as e:
             logging.error(f"Error registrando uso: {e}")
-            pregunta = update.message.text
-            respuesta_ia = preguntar_a_chatgpt(pregunta)
-            await update.message.reply_text(respuesta_ia)
+        pregunta = update.message.text
+        respuesta_ia = preguntar_a_chatgpt(pregunta)
+        await update.message.reply_text(respuesta_ia)
     else:
         link_pago = crear_preferencia_pago(telegram_id)
         if link_pago:
