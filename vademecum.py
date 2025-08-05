@@ -150,6 +150,10 @@ def puede_usar_bot(telegram_id):
             sus_valida = False
         if sus_valida:
             return True, "Suscripción activa"
+        else:
+            return False, "Suscripción expirada, debe pagar"
+    # Si no hay suscripción, chequear cantidad de consultas
+
     if consultas < CANTIDAD_GRATIS:
         return True, "Consulta gratuita"
     return False, "Debe pagar"
