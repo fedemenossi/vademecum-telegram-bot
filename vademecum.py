@@ -194,7 +194,7 @@ def preguntar_a_chatgpt(mensaje_usuario):
         response = client.chat.completions.create(
             model="gpt-g-688561e583788191a145fcdb69e0daa8",
             messages=[
-                {"role": "system", "content": "Sos un asistente amable y experto."},
+      #         {"role": "system", "content": "Sos un asistente amable y experto."},
                 {"role": "user", "content": mensaje_usuario}
             ]
         )
