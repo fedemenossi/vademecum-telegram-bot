@@ -192,7 +192,7 @@ def activar_suscripcion(telegram_id):
 def preguntar_a_chatgpt(mensaje_usuario):
     try:
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-g-688561e583788191a145fcdb69e0daa8",
             messages=[
                 {"role": "system", "content": "Sos un asistente amable y experto."},
                 {"role": "user", "content": mensaje_usuario}
